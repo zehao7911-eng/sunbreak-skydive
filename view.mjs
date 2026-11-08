@@ -27,6 +27,7 @@ export class SkyWorld{
   this.canopy.visible=false;
   this.rivals=[-1,1].map((side,i)=>{const p=this.person(i?0xf64783:0x754aff);this.scene.add(p);return p});
   this.ringGroup=new T.Group();this.scene.add(this.ringGroup);
+  this.makeStory();
   this.particles=[];
   const geo=new T.BoxGeometry(.10,.10,.22),mat=new T.MeshBasicMaterial({color:0xffed47});
   for(let i=0;i<34;i++){const m=new T.Mesh(geo,mat);m.visible=false;this.scene.add(m);this.particles.push(m)}
@@ -137,12 +138,81 @@ export class SkyWorld{
   this.queue=[];
   for(let i=0;i<4;i++){const p=this.person([0xff9225,0xf353a9,0x5f61ee,0x13c6bb][i]);p.scale.setScalar(.65);p.position.set(-2.3,0,3+i*1.3);p.rotation.y=Math.PI;this.airport.add(p);this.queue.push(p)}
  }
+ makeStory(){
+  this.gull=this.group(this.scene);
+  this.box(.34,.29,.72,0xffffff,0,0,0,this.gull);
+  this.box(.31,.29,.31,0xffffff,0,.20,.30,this.gull);
+  this.box(.14,.09,.27,0xffb824,0,.17,.53,this.gull);
+  for(const x of [-.16,.16])this.box(.036,.055,.06,0x143744,x,.25,.38,this.gull);
+  this.wings=[-1,1].map(side=>{
+   const wing=this.group(this.gull,side*.15,.02,-.06);
+   this.box(.66,.07,.35,0xffffff,side*.32,0,0,wing);
+   this.box(.25,.07,.32,0x31495b,side*.76,0,-.04,wing);
+   return wing;
+  });
+  this.lunch=this.sandwich(this.gull);
+  this.lunch.position.set(0,-.28,.22);this.lunch.scale.setScalar(.7);
+  this.picnic=this.group(this.scene);
+  this.box(3.3,.04,2.3,0xff6c49,0,.04,0,this.picnic);
+  for(let i=-2;i<=2;i++)this.box(.2,.01,2.3,0xffe5b4,i*.6,.07,0,this.picnic);
+  this.box(.67,.62,.59,0xffbf30,-1,.4,-.5,this.picnic);
+  this.box(.73,.1,.65,0xffe472,-1,.75,-.5,this.picnic);
+  this.snacks=[];
+  this.heldLunch=this.sandwich(this.scene);
+ }
+ sandwich(parent){
+  const g=this.group(parent);
+  for(const [y,h,color] of [[-.10,.13,0xe9a64e],[0,.045,0x44ba43],[.045,.045,0xff6548],[.09,.10,0xffd988]]){
+   this.box(.55,h,.40,color,0,y,0,g);
+  }
+  for(const x of [-.17,0,.17])this.box(.035,.015,.065,0xfff0b5,x,.148,.01,g);
+  return g;
+ }
  setGates(items){
+  for(const snack of this.snacks)this.scene.remove(snack);
+  this.snacks=[];
   for(const mesh of [...this.ringGroup.children]){mesh.geometry.dispose();this.ringGroup.remove(mesh)}
+  this.snacks=items.slice(0,3).map(()=>{const snack=this.sandwich(this.scene);snack.scale.setScalar(1.8);return snack});
   this.gateMeshes=items.map(g=>{
    const mesh=new T.Mesh(new T.TorusGeometry(g.radius,.14,7,40),this.material(0xffd82b));
    mesh.rotation.x=Math.PI/2;mesh.position.set(g.x,g.y,g.z);
    this.ringGroup.add(mesh);return mesh;
+  });
+ }
+ story(run,time){
+  const intro=run.phase==='intro', finish=['landed','result'].includes(run.phase);
+  this.heldLunch.visible=intro&&run.intro<2.1||finish&&run.snacks>=3;
+  if(intro)this.heldLunch.position.set(-2.3,1.12,36.4);
+  else this.heldLunch.position.set(run.x,1.25,run.z+.75);
+  this.picnic.visible=finish;
+  this.picnic.position.set(run.x,.13,run.z);
+  this.gull.visible=intro||run.phase==='dive'||finish;
+  this.wings.forEach((wing,i)=>wing.rotation.z=(i?1:-1)*Math.sin(time*17)*.65);
+  this.lunch.visible=true;
+  if(intro){
+   const t=run.intro;
+   const swoop=Math.max(0,Math.min(1,(t-1.5)/1.5));
+   this.gull.position.set(-2.3+swoop*3.5,1.75+Math.sin(swoop*Math.PI)*.5+Math.max(0,t-3)*1.8,36.2-swoop*1.5);
+   this.gull.rotation.y=t<3?Math.PI/2:0;
+   this.lunch.visible=t>=2.1;
+   this.queue.forEach((person,i)=>{
+    const shock=t>2.1?Math.sin(Math.min(1,(t-2.1)*3)*Math.PI)*.35:0;
+    person.position.y=shock*(i? .5:1);
+    person.userData.limbs.forEach(({arm,side})=>arm.rotation.z=side*(t>2.1?-2.4:-.38));
+   });
+  }else if(finish){
+   this.gull.position.set(run.x+1.4,1.25+Math.abs(Math.sin(time*4))*.17,run.z+.1);
+   this.gull.rotation.y=-.8;
+   this.lunch.visible=run.snacks<3;
+   this.wings.forEach(wing=>wing.rotation.z=0);
+  }else{
+   this.gull.position.set(run.x+2.8+Math.sin(time)*.5,run.y-2,run.z-2.7);
+   this.gull.rotation.y=Math.PI;
+  }
+  this.snacks.forEach((snack,i)=>{
+   snack.visible=!run.gates[i].passed;
+   snack.position.set(run.gates[i].x,run.gates[i].y+1,run.gates[i].z);
+   snack.rotation.y=time*1.5;
   });
  }
  burst(position){this.pulse=1;this.burstPosition=position.clone()}
@@ -151,6 +221,7 @@ export class SkyWorld{
   this.renderer.setSize(w,h,false);this.camera.aspect=w/h;this.camera.updateProjectionMatrix();
  }
  draw(run,dt,time){
+  this.story(run,time);
   this.pulse=Math.max(0,this.pulse-dt*2.2);
   this.propeller.rotation.z=time*45;
   if(run.phase==='dive'&&this.previousPhase!=='dive')this.camera.position.set(run.x+5,run.y+11,run.z+9);
@@ -165,7 +236,7 @@ export class SkyWorld{
   const falling=run.phase==='dive';
   p.rotation.set(falling?-1.25:0,Math.PI,falling?-run.tilt*.40:0);
   for(const {arm,fore,leg,side} of p.userData.limbs){
-   arm.rotation.z=side*(falling?-1.2:run.phase==='result'?-2.5:-.38);
+   arm.rotation.z=side*(falling?-1.2:run.phase==='result'?(run.snacks>=3?-2.5:-.65):-.38);
    fore.rotation.x=falling?-.45:-1;
    leg.rotation.x=falling?.20+Math.sin(time*7+side)*.10:0;
   }
@@ -185,8 +256,13 @@ export class SkyWorld{
    this.camera.position.set(15,13,58);this.camera.lookAt(-3,1.8,31);
   }else if(intro){
    const t=run.intro;
-   if(t<2.5){this.camera.position.set(28-t*3,15,61-t*4);this.camera.lookAt(-3,3,30)}
-   else{this.camera.position.set(4,4.4,43);this.camera.lookAt(-1,1.7,36)}
+   if(t<1.5){
+    this.camera.position.set(8-t*3,6,46);this.camera.lookAt(-2,1.8,36);
+   }else if(t<3.3){
+    this.camera.position.set(.6,3.0,40.8);this.camera.lookAt(-1.3,1.7,36);
+   }else{
+    this.camera.position.set(3.6,5.0,41);this.camera.lookAt(this.gull.position);
+   }
   }else{
    const chute=this.canopy.visible;
    const target=new T.Vector3(run.x+(chute?8:5),run.y+(chute?9:11),run.z+(chute?13:9));

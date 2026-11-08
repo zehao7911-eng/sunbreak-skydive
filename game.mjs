@@ -33,7 +33,7 @@ function social(){
 function menuRecord(){$('record').textContent='FLIGHT '+(level+1)+' / '+routes.length+' · '+routes[level].name.toUpperCase()+' · BEST '+saved.best[level]+' / 3 STARS'}
 function say(text){$('feedback').textContent=text;feedbackTime=1.5}
 function startIntro(){
- music.start();run.phase='intro';run.intro=0;$('panel').hidden=true;$('skip').hidden=false;
+ music.start();run.phase='intro';run.intro=0;run.snacks=0;run.storyBeat=-1;$('panel').hidden=true;$('skip').hidden=false;
 }
 function startDive(){
  if(run.phase!=='intro')return;
@@ -41,7 +41,7 @@ function startDive(){
  targetX=0;targetZ=0;hits=0;combo=0;ending=0;run.gates=gates(level);world.setGates(run.gates);
  $('skip').hidden=true;$('hud').hidden=false;$('steer').hidden=false;$('reticle').hidden=false;
  $('stage').textContent='FREEFALL';$('steer').firstChild.textContent='DRAG TO STEER ';
- $('flight').textContent='FLIGHT '+(level+1);say('LET’S FLY!');music.mode='dive';
+ $('flight').textContent='FLIGHT '+(level+1);say('CATCH YOUR LUNCH!');music.mode='dive';
 }
 function result(){
  if(run.phase==='result')return;
@@ -51,7 +51,7 @@ function result(){
  $('panel').hidden=false;$('steer').hidden=true;$('reticle').hidden=true;
  $('eyebrow').textContent=routes[level].name.toUpperCase()+' / COMPLETE';
  $('title').textContent=stars===3?'Sky-high style!':stars?'Touchdown!':'Another leap?';
- $('description').textContent=hits+' / '+run.gates.length+' rings · '+landingDistance.toFixed(1)+' m from the bullseye'+(stars?' · Next flight unlocked.':' · Catch at least 40% of the rings to progress.');
+ $('description').textContent=hits+' / '+run.gates.length+' rings · '+run.snacks+' / 3 lunch bites saved · '+landingDistance.toFixed(1)+' m from the bullseye'+(stars?' · Next flight unlocked.':' · Catch at least 40% of the rings to progress.');
  $('badges').textContent='★'.repeat(stars)+'☆'.repeat(3-stars);
  $('primary').textContent=stars&&level<routes.length-1?'NEXT FLIGHT ↗':'FLY AGAIN ↗';
  $('secondary').hidden=!(stars&&level<routes.length-1);
@@ -96,7 +96,13 @@ let last=performance.now();
 function frame(now){
  const dt=Math.min(.045,(now-last)/1000);last=now;
  if(document.hidden){requestAnimationFrame(frame);return}
- if(run.phase==='intro'){run.intro+=dt;if(run.intro>4.6)startDive()}
+ if(run.phase==='intro'){run.intro+=dt;const beat=run.intro<1.5?0:run.intro<3.3?1:2;
+  if(beat!==run.storyBeat){
+   run.storyBeat=beat;
+   say(['LUNCH BEFORE LAUNCH.','HEY! THAT’S MY LUNCH!','AFTER THAT GULL!'][beat]);
+   if(beat===1)music.hit(1);
+  }
+  if(run.intro>5.8)startDive()}
  if(['dive','chute'].includes(run.phase)){
   const oldY=run.y;
   run.y=Math.max(.7,run.y-dt*(run.phase==='dive'?5.4:2.5));
@@ -105,16 +111,19 @@ function frame(now){
   for(const gate of run.gates){
    if(!gate.passed&&oldY>=gate.y&&run.y<gate.y){
     gate.passed=true;gate.hit=Math.hypot(run.x-gate.x,run.z-gate.z)<gate.radius;
-    if(gate.hit){hits++;combo++;say(combo>1?combo+'× SKY STREAK':'CLEAN PASS!');music.hit(combo);world.burst(world.player.position)}
+    if(gate.hit){hits++;combo++;
+    const lunch=run.gates.indexOf(gate)<3;
+    if(lunch)run.snacks++;
+    say(lunch?'LUNCH SAVED '+run.snacks+' / 3':combo>1?combo+'× SKY STREAK':'CLEAN PASS!');music.hit(combo);world.burst(world.player.position)}
     else{combo=0;say('NEXT RING AHEAD')}
    }
   }
   if(run.phase==='dive'&&run.y<=24){run.phase='chute';music.mode='chute';say('CHUTE OPEN!');$('stage').textContent='LANDING';$('steer').firstChild.textContent='STEER TO THE RED TARGET '}
-  if(run.y<=.7){landingDistance=Math.hypot(run.x,run.z);run.phase='landed';ending=0;say(landingDistance<1.6?'BULLSEYE!':'TOUCHDOWN!')}
+  if(run.y<=.7){landingDistance=Math.hypot(run.x,run.z);run.phase='landed';ending=0;say(run.snacks>=3?'PICNIC SECURED!':'THE GULL WANTS A REMATCH!')}
   $('altitude').textContent=Math.round(run.y*25)+' FT';$('rings').textContent=hits+' / '+run.gates.length;
   $('progress').value=1-run.y/132;
  }
- if(run.phase==='landed'){ending+=dt;if(ending>1.1)result()}
+ if(run.phase==='landed'){ending+=dt;if(ending>3.0)result()}
  if(feedbackTime>0){feedbackTime-=dt;$('feedback').style.opacity=String(Math.min(1,feedbackTime*3))}else $('feedback').style.opacity='0';
  run.gold=saved.gold;world?.draw(run,dt,now/1000);requestAnimationFrame(frame);
 }
