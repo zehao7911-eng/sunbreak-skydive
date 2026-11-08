@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#07b6ea"><title>Sunbreak Skydive</title><link rel="stylesheet" href="style.css"></head>
+<body><main>
+<canvas aria-label="3D skydiving world"></canvas>
+<header><div><small>SUNBREAK / AIR CLUB</small><h1>SKYDIVE</h1></div><button id="sound" aria-label="Toggle music" aria-pressed="true">♫</button></header>
+<section id="hud" hidden><div><small id="stage">FREEFALL</small><b id="altitude"></b></div><div class="route"><small id="flight"></small><progress id="progress" max="1" value="0"></progress></div><div><small>RINGS</small><b id="rings">0 / 8</b></div></section>
+<div id="feedback" role="status"></div>
+<div id="reticle" hidden>＋</div>
+<section id="panel">
+<small id="eyebrow">THE SKY IS YOUR PLAYGROUND</small>
+<h2 id="title">Take the leap.</h2>
+<p id="description">Drag to steer. Fly through gold rings.<br>Your parachute opens automatically.</p>
+<div id="badges"></div><button id="primary">LET'S FLY ↗</button><button id="secondary" hidden>Fly again</button>
+<small id="record"></small>
+</section>
+<div id="steer" hidden>DRAG TO STEER <span>↔ ↕</span></div>
+<button id="skip" hidden>Skip intro ↗</button>
+<p id="social" hidden></p>
+</main><script src="vendor/three.min.js"></script><script type="module" src="game.mjs"></script></body></html>
