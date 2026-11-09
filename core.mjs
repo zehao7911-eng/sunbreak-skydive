@@ -23,3 +23,9 @@ export function grade(hits,total,landing){
  return ratio>=.85&&landing<1.6?3:ratio>=.55&&landing<3?2:ratio>=.4?1:0;
 }
 export function unlocked(best){return Math.min(routes.length-1,best.findIndex(n=>n===0)<0?routes.length-1:best.findIndex(n=>n===0))}
+
+export const episodes=[
+ {prop:'sandwich',title:'The lunch chase.',item:'lunch bites',beats:['LUNCH BEFORE LAUNCH.','HEY! THAT’S MY LUNCH!','AFTER THAT GULL!'],win:'PICNIC SECURED!',miss:'THE GULL WANTS A REMATCH!'},
+ {prop:'camera',title:'The flying photo booth.',item:'camera parts',beats:['GROUP PHOTO, EVERYONE!','THAT IS NOT YOUR CAMERA!','CATCH THE CAMERA PARTS!'],win:'SAY CHEESE, GULL!',miss:'THE GULL TOOK A BLURRY SELFIE!'},
+ {prop:'trophy',title:'The golden getaway.',item:'trophy pieces',beats:['THE PRIZE IS READY.','THAT BIRD IS NOT A FINALIST!','GET THAT TROPHY BACK!'],win:'THE GULL TAKES SECOND!',miss:'THE GULL CLAIMS THE PODIUM!'}
+];

@@ -150,15 +150,39 @@ export class SkyWorld{
    this.box(.25,.07,.32,0x31495b,side*.76,0,-.04,wing);
    return wing;
   });
-  this.lunch=this.sandwich(this.gull);
-  this.lunch.position.set(0,-.28,.22);this.lunch.scale.setScalar(.7);
+  this.cargo={};this.prizes={};
+  for(const kind of ['sandwich','camera','trophy']){
+   const cargo=this.prop(kind,this.gull);cargo.position.set(0,-.28,.22);cargo.scale.setScalar(.7);
+   this.cargo[kind]=cargo;this.prizes[kind]=this.prop(kind,this.scene);
+  }
+  this.podium=this.group(this.scene);
+  for(let i=0;i<3;i++)this.box(.82,.5+i*.24,.86,[0x45bdec,0xfa9250,0xffd950][i],(i-1)*.9,.25+i*.12,0,this.podium);
+  this.flash=this.box(2.7,.02,2.7,0xffffff,0,0,0);
+  this.flash.material=new T.MeshBasicMaterial({color:0xffffff,transparent:true,opacity:0,depthWrite:false});
   this.picnic=this.group(this.scene);
   this.box(3.3,.04,2.3,0xff6c49,0,.04,0,this.picnic);
   for(let i=-2;i<=2;i++)this.box(.2,.01,2.3,0xffe5b4,i*.6,.07,0,this.picnic);
   this.box(.67,.62,.59,0xffbf30,-1,.4,-.5,this.picnic);
   this.box(.73,.1,.65,0xffe472,-1,.75,-.5,this.picnic);
   this.snacks=[];
-  this.heldLunch=this.sandwich(this.scene);
+
+ }
+ prop(kind,parent){
+  if(kind==='sandwich')return this.sandwich(parent);
+  const g=this.group(parent);
+  if(kind==='camera'){
+   this.box(.62,.38,.27,0x5536ae,0,0,0,g);
+   this.box(.27,.26,.22,0x132954,0,0,.22,g);
+   this.box(.19,.18,.04,0x4ce7fc,0,0,.35,g);
+   this.box(.16,.075,.08,0xfff2b4,.17,.10,.14,g);
+   this.box(.10,.045,.11,0xff675b,.16,.21,0,g);
+  }else{
+   this.box(.47,.28,.33,0xffd34b,0,.18,0,g);
+   this.box(.11,.26,.11,0xffb22b,0,-.04,0,g);
+   this.box(.36,.10,.28,0x624280,0,-.20,0,g);
+   for(const side of [-1,1])this.box(.10,.15,.11,0xffea7b,side*.27,.20,0,g);
+  }
+  return g;
  }
  sandwich(parent){
   const g=this.group(parent);
@@ -168,11 +192,11 @@ export class SkyWorld{
   for(const x of [-.17,0,.17])this.box(.035,.015,.065,0xfff0b5,x,.148,.01,g);
   return g;
  }
- setGates(items){
+ setGates(items,kind){
   for(const snack of this.snacks)this.scene.remove(snack);
   this.snacks=[];
   for(const mesh of [...this.ringGroup.children]){mesh.geometry.dispose();this.ringGroup.remove(mesh)}
-  this.snacks=items.slice(0,3).map(()=>{const snack=this.sandwich(this.scene);snack.scale.setScalar(1.8);return snack});
+  this.snacks=items.slice(0,3).map(()=>{const snack=this.prop(kind,this.scene);snack.scale.setScalar(1.8);return snack});
   this.gateMeshes=items.map(g=>{
    const mesh=new T.Mesh(new T.TorusGeometry(g.radius,.14,7,40),this.material(0xffd82b));
    mesh.rotation.x=Math.PI/2;mesh.position.set(g.x,g.y,g.z);
@@ -181,29 +205,39 @@ export class SkyWorld{
  }
  story(run,time){
   const intro=run.phase==='intro', finish=['landed','result'].includes(run.phase);
-  this.heldLunch.visible=intro&&run.intro<2.1||finish&&run.snacks>=3;
-  if(intro)this.heldLunch.position.set(-2.3,1.12,36.4);
-  else this.heldLunch.position.set(run.x,1.25,run.z+.75);
-  this.picnic.visible=finish;
+  const kind=run.prop, success=run.snacks>=3;
+  for(const name of Object.keys(this.cargo)){
+   this.cargo[name].visible=name===kind&&(!intro||run.intro>=2.1)&&(!finish||!success);
+   this.prizes[name].visible=name===kind&&(intro&&run.intro<2.1||finish&&success);
+  }
+  if(intro)this.prizes[kind].position.set(-2.3,1.12,36.4);
+  else this.prizes[kind].position.set(run.x,1.25,run.z+.75);
+  this.picnic.visible=finish&&kind==='sandwich';
+  this.podium.visible=finish&&kind==='trophy';
+  this.podium.position.set(run.x+1.25,.1,run.z-.45);
+  this.flash.visible=finish&&kind==='camera'&&run.phase==='landed';
+  this.flash.position.set(run.x,1.25,run.z+.75);
+  this.flash.lookAt(this.camera.position);this.flash.rotateX(Math.PI/2);
+  this.flash.material.opacity=Math.max(0,Math.sin(time*7)-.86)*2;
   this.picnic.position.set(run.x,.13,run.z);
   this.gull.visible=intro||run.phase==='dive'||finish;
   this.wings.forEach((wing,i)=>wing.rotation.z=(i?1:-1)*Math.sin(time*17)*.65);
-  this.lunch.visible=true;
+
   if(intro){
    const t=run.intro;
    const swoop=Math.max(0,Math.min(1,(t-1.5)/1.5));
    this.gull.position.set(-2.3+swoop*3.5,1.75+Math.sin(swoop*Math.PI)*.5+Math.max(0,t-3)*1.8,36.2-swoop*1.5);
    this.gull.rotation.y=t<3?Math.PI/2:0;
-   this.lunch.visible=t>=2.1;
+
    this.queue.forEach((person,i)=>{
     const shock=t>2.1?Math.sin(Math.min(1,(t-2.1)*3)*Math.PI)*.35:0;
     person.position.y=shock*(i? .5:1);
     person.userData.limbs.forEach(({arm,side})=>arm.rotation.z=side*(t>2.1?-2.4:-.38));
    });
   }else if(finish){
-   this.gull.position.set(run.x+1.4,1.25+Math.abs(Math.sin(time*4))*.17,run.z+.1);
+   this.gull.position.set(run.x+1.4,(kind==='trophy'?1.85:1.25)+Math.abs(Math.sin(time*4))*.17,run.z+.1);
    this.gull.rotation.y=-.8;
-   this.lunch.visible=run.snacks<3;
+
    this.wings.forEach(wing=>wing.rotation.z=0);
   }else{
    this.gull.position.set(run.x+2.8+Math.sin(time)*.5,run.y-2,run.z-2.7);

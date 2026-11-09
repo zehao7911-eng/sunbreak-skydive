@@ -1,4 +1,4 @@
-import {GAME,routes,profile,gates,grade,unlocked} from './core.mjs';
+import {GAME,routes,profile,gates,grade,unlocked,episodes} from './core.mjs';
 import {SkyWorld} from './view.mjs';
 import {BeaconHost} from './sdk.mjs';
 import {Music} from './audio.mjs';
@@ -6,7 +6,8 @@ const $=id=>document.getElementById(id),key=GAME+'-v1';
 let local=null;try{local=JSON.parse(localStorage.getItem(key))}catch{}
 let saved=profile(local),level=unlocked(saved.best),world;
 const music=new Music();music.enabled=saved.sound;
-const run={phase:'menu',x:0,y:132,z:0,tilt:0,gates:[],intro:0};
+const episode=()=>episodes[Math.floor(level/2)];
+const run={phase:'menu',prop:'sandwich',x:0,y:132,z:0,tilt:0,gates:[],intro:0};
 let hits=0,combo=0,feedbackTime=0,targetX=0,targetZ=0,drag=null,landingDistance=0,ending=0,support={};
 const host=new BeaconHost(window,{
  status(s){support=s;social()},
@@ -30,18 +31,23 @@ function social(){
  if(support.confetti)items.push(saved.confetti?'Victory sparks unlocked':'Comment in GameWave to unlock victory sparks');
  $('social').textContent=items.join(' · ');$('social').hidden=!items.length;
 }
-function menuRecord(){$('record').textContent='FLIGHT '+(level+1)+' / '+routes.length+' · '+routes[level].name.toUpperCase()+' · BEST '+saved.best[level]+' / 3 STARS'}
+function menuRecord(){if(run.phase==='menu'){
+ const available=unlocked(saved.best);
+ $('course').hidden=available===0;
+ $('course').innerHTML=routes.slice(0,available+1).map((route,i)=>'<option value="'+i+'">'+(i+1)+' / '+route.name+'</option>').join('');
+ $('course').value=String(level);$('title').textContent=episode().title;$('description').textContent='Drag to steer. Recover '+episode().item+' through the first three rings. Your parachute opens automatically.';} $('record').textContent='FLIGHT '+(level+1)+' / '+routes.length+' · '+routes[level].name.toUpperCase()+' · BEST '+saved.best[level]+' / 3 STARS'}
+$('course').onchange=()=>{level=Number($('course').value);menuRecord()};
 function say(text){$('feedback').textContent=text;feedbackTime=1.5}
 function startIntro(){
- music.start();run.phase='intro';run.intro=0;run.snacks=0;run.storyBeat=-1;$('panel').hidden=true;$('skip').hidden=false;
+ music.start();$('course').hidden=true;run.phase='intro';run.intro=0;run.prop=episode().prop;run.snacks=0;run.storyBeat=-1;$('panel').hidden=true;$('skip').hidden=false;
 }
 function startDive(){
  if(run.phase!=='intro')return;
  host.start();run.phase='dive';run.x=0;run.y=132;run.z=0;run.tilt=0;
- targetX=0;targetZ=0;hits=0;combo=0;ending=0;run.gates=gates(level);world.setGates(run.gates);
+ targetX=0;targetZ=0;hits=0;combo=0;ending=0;run.gates=gates(level);world.setGates(run.gates,run.prop);
  $('skip').hidden=true;$('hud').hidden=false;$('steer').hidden=false;$('reticle').hidden=false;
  $('stage').textContent='FREEFALL';$('steer').firstChild.textContent='DRAG TO STEER ';
- $('flight').textContent='FLIGHT '+(level+1);say('CATCH YOUR LUNCH!');music.mode='dive';
+ $('flight').textContent='FLIGHT '+(level+1);say('THE CHASE IS ON!');music.mode='dive';
 }
 function result(){
  if(run.phase==='result')return;
@@ -51,7 +57,7 @@ function result(){
  $('panel').hidden=false;$('steer').hidden=true;$('reticle').hidden=true;
  $('eyebrow').textContent=routes[level].name.toUpperCase()+' / COMPLETE';
  $('title').textContent=stars===3?'Sky-high style!':stars?'Touchdown!':'Another leap?';
- $('description').textContent=hits+' / '+run.gates.length+' rings · '+run.snacks+' / 3 lunch bites saved · '+landingDistance.toFixed(1)+' m from the bullseye'+(stars?' · Next flight unlocked.':' · Catch at least 40% of the rings to progress.');
+ $('description').textContent=hits+' / '+run.gates.length+' rings · '+run.snacks+' / 3 '+episode().item+' recovered · '+landingDistance.toFixed(1)+' m from the bullseye'+(stars?' · Next flight unlocked.':' · Catch at least 40% of the rings to progress.');
  $('badges').textContent='★'.repeat(stars)+'☆'.repeat(3-stars);
  $('primary').textContent=stars&&level<routes.length-1?'NEXT FLIGHT ↗':'FLY AGAIN ↗';
  $('secondary').hidden=!(stars&&level<routes.length-1);
@@ -99,7 +105,7 @@ function frame(now){
  if(run.phase==='intro'){run.intro+=dt;const beat=run.intro<1.5?0:run.intro<3.3?1:2;
   if(beat!==run.storyBeat){
    run.storyBeat=beat;
-   say(['LUNCH BEFORE LAUNCH.','HEY! THAT’S MY LUNCH!','AFTER THAT GULL!'][beat]);
+   say(episode().beats[beat]);
    if(beat===1)music.hit(1);
   }
   if(run.intro>5.8)startDive()}
@@ -114,12 +120,12 @@ function frame(now){
     if(gate.hit){hits++;combo++;
     const lunch=run.gates.indexOf(gate)<3;
     if(lunch)run.snacks++;
-    say(lunch?'LUNCH SAVED '+run.snacks+' / 3':combo>1?combo+'× SKY STREAK':'CLEAN PASS!');music.hit(combo);world.burst(world.player.position)}
+    say(lunch?'RECOVERED '+run.snacks+' / 3':combo>1?combo+'× SKY STREAK':'CLEAN PASS!');music.hit(combo);world.burst(world.player.position)}
     else{combo=0;say('NEXT RING AHEAD')}
    }
   }
   if(run.phase==='dive'&&run.y<=24){run.phase='chute';music.mode='chute';say('CHUTE OPEN!');$('stage').textContent='LANDING';$('steer').firstChild.textContent='STEER TO THE RED TARGET '}
-  if(run.y<=.7){landingDistance=Math.hypot(run.x,run.z);run.phase='landed';ending=0;say(run.snacks>=3?'PICNIC SECURED!':'THE GULL WANTS A REMATCH!')}
+  if(run.y<=.7){landingDistance=Math.hypot(run.x,run.z);run.phase='landed';ending=0;say(run.snacks>=3?episode().win:episode().miss)}
   $('altitude').textContent=Math.round(run.y*25)+' FT';$('rings').textContent=hits+' / '+run.gates.length;
   $('progress').value=1-run.y/132;
  }
